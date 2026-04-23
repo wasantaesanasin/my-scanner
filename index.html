@@ -21,13 +21,13 @@
         const urlParams = new URLSearchParams(window.location.search);
         const gasUrl = urlParams.get('callback'); 
         const activityId = urlParams.get('actId');
+        const recorder = urlParams.get('recorder');
 
         function onScanSuccess(decodedText) {
     document.getElementById('status').innerText = "กำลังบันทึก...";
     
     // สร้าง URL สำหรับส่งข้อมูล
-    const finalUrl = `${gasUrl}?action=record&id=${encodeURIComponent(decodedText)}&actId=${activityId}`;
-    
+    const finalUrl = `${gasUrl}?action=record&id=${encodeURIComponent(decodedText)}&actId=${activityId}&recorder=${encodeURIComponent(recorder)}`;
     // ลองใช้ Image Beacon (เทคนิคส่งข้อมูลแบบไม่ต้องกังวลเรื่อง CORS)
     var img = new Image();
     img.src = finalUrl;
@@ -41,6 +41,7 @@
         alert("ระบบกำลังประมวลผลข้อมูลของ: " + decodedText);
         window.close();
     };
+            window.location.href = finalUrl;
 }
 
         let html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
