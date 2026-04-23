@@ -23,18 +23,25 @@
         const activityId = urlParams.get('actId');
 
         function onScanSuccess(decodedText) {
-            document.getElementById('status').innerText = "กำลังบันทึกข้อมูล...";
-            
-            // ส่งค่ากลับไปยัง Google Apps Script
-            const finalUrl = `${gasUrl}?action=record&id=${decodedText}&actId=${activityId}`;
-            
-            fetch(finalUrl, { mode: 'no-cors' }) // ใช้ no-cors เพื่อเลี่ยงปัญหา Cross-Origin
-            .then(() => {
-                alert("สแกนสำเร็จ: " + decodedText);
-                window.close(); // ปิดหน้านี้อัตโนมัติ (ถ้า Browser อนุญาต)
-            })
-            .catch(err => alert("บันทึกผิดพลาด แต่สแกนติด: " + decodedText));
-        }
+    document.getElementById('status').innerText = "กำลังบันทึก...";
+    
+    // สร้าง URL สำหรับส่งข้อมูล
+    const finalUrl = `${gasUrl}?action=record&id=${encodeURIComponent(decodedText)}&actId=${activityId}`;
+    
+    // ลองใช้ Image Beacon (เทคนิคส่งข้อมูลแบบไม่ต้องกังวลเรื่อง CORS)
+    var img = new Image();
+    img.src = finalUrl;
+    
+    img.onload = function() {
+        alert("บันทึกสำเร็จ: " + decodedText);
+        window.close();
+    };
+    img.onerror = function() {
+        // แม้จะขึ้น Error แต่อาจจะบันทึกเข้า Sheet แล้ว (เพราะเป็น Cross-origin)
+        alert("ระบบกำลังประมวลผลข้อมูลของ: " + decodedText);
+        window.close();
+    };
+}
 
         let html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
         html5QrcodeScanner.render(onScanSuccess);
