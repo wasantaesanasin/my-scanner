@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>QR Scanner Bridge</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; background: #f4f7f6; }
+        #reader { width: 100%; max-width: 500px; margin: auto; border-radius: 10px; overflow: hidden; }
+        .status { margin-top: 20px; font-weight: bold; color: #6366f1; }
+    </style>
+</head>
+<body>
+    <h2>สแกน QR Code</h2>
+    <div id="reader"></div>
+    <div id="status" class="status">กรุณาอนุญาตให้เข้าถึงกล้อง</div>
+
+    <script>
+        // รับค่า Web App URL จาก Address Bar (Parameter)
+        const urlParams = new URLSearchParams(window.location.search);
+        const gasUrl = urlParams.get('callback'); 
+        const activityId = urlParams.get('actId');
+
+        function onScanSuccess(decodedText) {
+            document.getElementById('status').innerText = "กำลังบันทึกข้อมูล...";
+            
+            // ส่งค่ากลับไปยัง Google Apps Script
+            const finalUrl = `${gasUrl}?action=record&id=${decodedText}&actId=${activityId}`;
+            
+            fetch(finalUrl, { mode: 'no-cors' }) // ใช้ no-cors เพื่อเลี่ยงปัญหา Cross-Origin
+            .then(() => {
+                alert("สแกนสำเร็จ: " + decodedText);
+                window.close(); // ปิดหน้านี้อัตโนมัติ (ถ้า Browser อนุญาต)
+            })
+            .catch(err => alert("บันทึกผิดพลาด แต่สแกนติด: " + decodedText));
+        }
+
+        let html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+        html5QrcodeScanner.render(onScanSuccess);
+    </script>
+</body>
+</html>
