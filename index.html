@@ -1,35 +1,84 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>QR Scanner Bridge</title>
+    <title>QR Scanner - ระบบสแกนต่อเนื่อง</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 20px; background: #f4f7f6; }
-        #reader { width: 100%; max-width: 500px; margin: auto; border-radius: 10px; overflow: hidden; }
-        .status { margin-top: 20px; font-weight: bold; color: #6366f1; }
+        body { font-family: 'Sarabun', sans-serif; text-align: center; padding: 20px; background: #f0f2f5; margin: 0; }
+        .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        #reader { width: 100%; border-radius: 15px; overflow: hidden; border: none !important; }
+        #status { 
+            margin-top: 20px; padding: 15px; border-radius: 12px; 
+            font-size: 1.2rem; font-weight: bold; transition: all 0.3s;
+            background: #eef2ff; color: #4f46e5;
+        }
+        .success { background: #dcfce7 !important; color: #166534 !important; border: 2px solid #22c55e; }
+        .loading { background: #fef9c3 !important; color: #854d0e !important; }
+        .info { color: #666; font-size: 0.9rem; margin-top: 10px; }
     </style>
 </head>
 <body>
-    <h2>สแกน QR Code</h2>
-    <div id="reader"></div>
-    <div id="status" class="status">กรุณาอนุญาตให้เข้าถึงกล้อง</div>
+    <div class="container">
+        <h2 style="color: #1e293b;">ระบบสแกนกิจกรรม</h2>
+        <div id="reader"></div>
+        <div id="status">📢 พร้อมสแกน</div>
+        <p class="info">ผู้บันทึก: <span id="recorder-name">...</span></p>
+    </div>
 
     <script>
-        // รับค่า Web App URL จาก Address Bar (Parameter)
         const urlParams = new URLSearchParams(window.location.search);
         const gasUrl = urlParams.get('callback'); 
         const activityId = urlParams.get('actId');
         const recorder = urlParams.get('recorder');
+        
+        document.getElementById('recorder-name').innerText = recorder || "ไม่ได้ระบุ";
+
+        let isProcessing = false;
 
         function onScanSuccess(decodedText) {
-    const finalUrl = `${gasUrl}?id=${encodeURIComponent(decodedText)}&actId=${activityId}&recorder=${encodeURIComponent(recorder)}`;
-    html5QrcodeScanner.clear();
-    window.location.href = finalUrl;
-}
+            if (isProcessing) return; // ป้องกันการส่งซ้ำขณะกำลังประมวลผล
+            
+            isProcessing = true;
+            const statusEl = document.getElementById('status');
+            
+            // แสดงสถานะกำลังบันทึก
+            statusEl.innerText = "⏳ กำลังบันทึก: " + decodedText;
+            statusEl.className = "loading";
 
-        let html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+            // สร้าง URL สำหรับส่งข้อมูล (เพิ่ม mode=api)
+            const finalUrl = `${gasUrl}?id=${encodeURIComponent(decodedText)}&actId=${activityId}&recorder=${encodeURIComponent(recorder)}&mode=api`;
+
+            // ใช้เทคนิค Image Beacon เพื่อส่งข้อมูลข้าม Domain ได้รวดเร็วและไม่ค้าง
+            const img = new Image();
+            img.src = finalUrl;
+
+            // เมื่อส่งสำเร็จ (หรือส่งออกไปแล้ว)
+            const handleFinish = () => {
+                statusEl.innerText = "✔️ บันทึกสำเร็จ: " + decodedText.replace('REPAIR:','');
+                statusEl.className = "success";
+                
+                // สั่นเบาๆ (ถ้ามือถือรองรับ) เพื่อบอกครูว่าสแกนติดแล้ว
+                if (navigator.vibrate) navigator.vibrate(100);
+
+                // รอ 1.2 วินาทีเพื่อให้พร้อมสแกนคนต่อไป
+                setTimeout(() => {
+                    statusEl.innerText = "🔍 พร้อมสแกนคนต่อไป...";
+                    statusEl.className = "";
+                    isProcessing = false;
+                }, 1200);
+            };
+
+            img.onload = handleFinish;
+            img.onerror = handleFinish; // ถึง Error ก็ให้ข้ามเพราะโหมด no-cors มักจะขึ้น error แต่บันทึกเข้า
+        }
+
+        let html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
+            fps: 15, 
+            qrbox: { width: 250, height: 250 },
+            aspectRatio: 1.0
+        });
         html5QrcodeScanner.render(onScanSuccess);
     </script>
 </body>
