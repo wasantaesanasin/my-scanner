@@ -24,24 +24,17 @@
         const recorder = urlParams.get('recorder');
 
         function onScanSuccess(decodedText) {
-    document.getElementById('status').innerText = "กำลังบันทึก...";
+    document.getElementById('status').innerText = "กำลังนำคุณไปยังระบบบันทึก...";
     
-    // สร้าง URL สำหรับส่งข้อมูล
-    const finalUrl = `${gasUrl}?action=record&id=${encodeURIComponent(decodedText)}&actId=${activityId}&recorder=${encodeURIComponent(recorder)}`;
-    // ลองใช้ Image Beacon (เทคนิคส่งข้อมูลแบบไม่ต้องกังวลเรื่อง CORS)
-    var img = new Image();
-    img.src = finalUrl;
+    // 1. สร้าง URL สำหรับ Redirect ไปยัง Google Apps Script โดยตรง
+    // ระบบจะส่งค่า id, actId, และ recorder ไปให้ doGet ทำงาน
+    const finalUrl = `${gasUrl}?id=${encodeURIComponent(decodedText)}&actId=${encodeURIComponent(activityId)}&recorder=${encodeURIComponent(recorder)}`;
     
-    img.onload = function() {
-        alert("บันทึกสำเร็จ: " + decodedText);
-        window.close();
-    };
-    img.onerror = function() {
-        // แม้จะขึ้น Error แต่อาจจะบันทึกเข้า Sheet แล้ว (เพราะเป็น Cross-origin)
-        alert("ระบบกำลังประมวลผลข้อมูลของ: " + decodedText);
-        window.close();
-    };
-            window.location.href = finalUrl;
+    // 2. หยุดตัวสแกนเพื่อไม่ให้สแกนซ้ำระหว่างรอเปลี่ยนหน้า
+    html5QrcodeScanner.clear();
+    
+    // 3. เปลี่ยนหน้าไปยัง Google Apps Script (วิธีนี้ชัวร์ที่สุด ข้อมูลเข้าแน่นอน)
+    window.location.href = finalUrl;
 }
 
         let html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
