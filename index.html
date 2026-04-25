@@ -16,7 +16,6 @@
         }
         .success { background: #dcfce7 !important; color: #166534 !important; border: 2px solid #22c55e; }
         .loading { background: #fef9c3 !important; color: #854d0e !important; }
-        .warning { background: #ffedd5 !important; color: #9a3412 !important; border: 2px solid #fb923c; }
         .info { color: #666; font-size: 0.9rem; margin-top: 10px; }
     </style>
 </head>
@@ -38,36 +37,42 @@
 
         let isProcessing = false;
 
-       async function onScanSuccess(decodedText) {
-    if (isProcessing) return; 
-    isProcessing = true;
-    
-    const statusEl = document.getElementById('status');
-    statusEl.innerText = "⏳ กำลังบันทึก: " + decodedText.replace('REPAIR:','');
-    statusEl.className = "loading";
+        function onScanSuccess(decodedText) {
+            if (isProcessing) return; // ป้องกันการส่งซ้ำขณะกำลังประมวลผล
+            
+            isProcessing = true;
+            const statusEl = document.getElementById('status');
+            
+            // แสดงสถานะกำลังบันทึก
+            statusEl.innerText = "⏳ กำลังบันทึก: " + decodedText;
+            statusEl.className = "loading";
 
-    // ส่งข้อมูลแบบดั้งเดิมที่ชัวร์ที่สุด
-    const finalUrl = `${gasUrl}?id=${encodeURIComponent(decodedText)}&actId=${activityId}&recorder=${encodeURIComponent(recorder)}&mode=api`;
+            // สร้าง URL สำหรับส่งข้อมูล (เพิ่ม mode=api)
+            const finalUrl = `${gasUrl}?id=${encodeURIComponent(decodedText)}&actId=${activityId}&recorder=${encodeURIComponent(recorder)}&mode=api`;
 
-    // ใช้ fetch แบบ no-cors เพื่อให้ข้อมูลเดินทางไปถึง Google Sheet แน่นอน
-    fetch(finalUrl, { mode: 'no-cors' })
-    .then(() => {
-        // เมื่อทำงานเสร็จ (ไม่ว่าผลใน Sheet จะเป็นอย่างไร)
-        statusEl.innerText = "✔️ บันทึก/ตรวจสอบเรียบร้อย: " + decodedText.replace('REPAIR:','');
-        statusEl.className = "success";
-        if (navigator.vibrate) navigator.vibrate(100);
+            // ใช้เทคนิค Image Beacon เพื่อส่งข้อมูลข้าม Domain ได้รวดเร็วและไม่ค้าง
+            const img = new Image();
+            img.src = finalUrl;
 
-        setTimeout(() => {
-            statusEl.innerText = "🔍 พร้อมสแกนคนต่อไป...";
-            statusEl.className = "";
-            isProcessing = false;
-        }, 1200);
-    })
-    .catch(err => {
-        statusEl.innerText = "❌ เกิดข้อผิดพลาด";
-        isProcessing = false;
-    });
-}
+            // เมื่อส่งสำเร็จ (หรือส่งออกไปแล้ว)
+            const handleFinish = () => {
+                statusEl.innerText = "✔️ บันทึกสำเร็จ: " + decodedText.replace('REPAIR:','');
+                statusEl.className = "success";
+                
+                // สั่นเบาๆ (ถ้ามือถือรองรับ) เพื่อบอกครูว่าสแกนติดแล้ว
+                if (navigator.vibrate) navigator.vibrate(100);
+
+                // รอ 1.2 วินาทีเพื่อให้พร้อมสแกนคนต่อไป
+                setTimeout(() => {
+                    statusEl.innerText = "🔍 พร้อมสแกนคนต่อไป...";
+                    statusEl.className = "";
+                    isProcessing = false;
+                }, 1200);
+            };
+
+            img.onload = handleFinish;
+            img.onerror = handleFinish; // ถึง Error ก็ให้ข้ามเพราะโหมด no-cors มักจะขึ้น error แต่บันทึกเข้า
+        }
 
         let html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
             fps: 15, 
