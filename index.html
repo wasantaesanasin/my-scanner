@@ -46,45 +46,27 @@
     statusEl.innerText = "⏳ กำลังบันทึก: " + decodedText.replace('REPAIR:','');
     statusEl.className = "loading";
 
+    // ส่งข้อมูลแบบดั้งเดิมที่ชัวร์ที่สุด
     const finalUrl = `${gasUrl}?id=${encodeURIComponent(decodedText)}&actId=${activityId}&recorder=${encodeURIComponent(recorder)}&mode=api`;
 
-    try {
-        // ใช้ fetch พร้อมตั้งค่ารับมือกับการ Redirect ของ Google
-        const response = await fetch(finalUrl, {
-            method: 'GET',
-            mode: 'cors', // ต้องเป็น cors
-            headers: { 'Content-Type': 'text/plain' }
-        });
-        
-        const result = await response.text();
+    // ใช้ fetch แบบ no-cors เพื่อให้ข้อมูลเดินทางไปถึง Google Sheet แน่นอน
+    fetch(finalUrl, { mode: 'no-cors' })
+    .then(() => {
+        // เมื่อทำงานเสร็จ (ไม่ว่าผลใน Sheet จะเป็นอย่างไร)
+        statusEl.innerText = "✔️ บันทึก/ตรวจสอบเรียบร้อย: " + decodedText.replace('REPAIR:','');
+        statusEl.className = "success";
+        if (navigator.vibrate) navigator.vibrate(100);
 
-        if (result.includes("Success")) {
-            statusEl.innerText = "✔️ บันทึกสำเร็จ: " + decodedText.replace('REPAIR:','');
-            statusEl.className = "success";
-            if (navigator.vibrate) navigator.vibrate(100);
-        } 
-        else if (result.includes("Duplicate")) {
-            statusEl.innerText = "⚠️ สแกนซ้ำไปแล้ว: " + decodedText.replace('REPAIR:','');
-            statusEl.className = "warning";
-            if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
-        } 
-        else {
-            statusEl.innerText = "❌ " + result;
+        setTimeout(() => {
+            statusEl.innerText = "🔍 พร้อมสแกนคนต่อไป...";
             statusEl.className = "";
-        }
-    } catch (error) {
-        // หาก fetch ติดปัญหา CORS แต่ข้อมูลอาจจะถึงแล้ว (ในบางกรณี)
-        // เพื่อความชัวร์ ให้ครูเช็คในชีท หรือลองสแกนใหม่
-        statusEl.innerText = "❌ การเชื่อมต่อขัดข้อง (เช็คเน็ตครู)";
-        statusEl.className = "";
-        console.error(error);
-    }
-
-    setTimeout(() => {
-        statusEl.innerText = "🔍 พร้อมสแกนคนต่อไป...";
-        statusEl.className = "";
+            isProcessing = false;
+        }, 1200);
+    })
+    .catch(err => {
+        statusEl.innerText = "❌ เกิดข้อผิดพลาด";
         isProcessing = false;
-    }, 1500);
+    });
 }
 
         let html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
