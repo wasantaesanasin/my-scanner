@@ -50,33 +50,32 @@
             const finalUrl = `${gasUrl}?id=${encodeURIComponent(decodedText)}&actId=${activityId}&recorder=${encodeURIComponent(recorder)}&mode=api`;
 
             try {
-                // เปลี่ยนจาก Image() มาใช้ fetch เพื่ออ่านคำตอบจาก GAS
+                // เพิ่มโหมด no-cors หรือจัดการผลลัพธ์ให้ชัวร์
                 const response = await fetch(finalUrl);
                 const result = await response.text();
 
                 if (navigator.vibrate) navigator.vibrate(100);
 
-                if (result === "Success") {
+                // ตรวจคำตอบที่ส่งกลับมาจริงจาก Google Sheets
+                if (result.includes("Success")) {
                     statusEl.innerText = "✔️ บันทึกสำเร็จ: " + cleanId;
                     statusEl.className = "success";
-                } else if (result === "AlreadyComplete") {
+                } else if (result.includes("AlreadyComplete")) {
                     statusEl.innerText = "❌ ซ่อมครบแล้ว: " + cleanId;
                     statusEl.className = "warning";
-                } else if (result === "TooFast") {
-                    statusEl.innerText = "⚠️ ใจเย็นๆ สแกนรัวไป: " + cleanId;
-                    statusEl.className = "warning";
-                } else if (result === "Duplicate") {
-                    statusEl.innerText = "🚫 สแกนซ้ำไปแล้ว: " + cleanId;
+                } else if (result.includes("TooFast")) {
+                    statusEl.innerText = "⚠️ สแกนซ้ำเร็วเกินไป: " + cleanId;
                     statusEl.className = "warning";
                 } else {
-                    statusEl.innerText = "❓ ผลลัพธ์: " + result;
-                    statusEl.className = "";
+                    // กรณี Google Sheets ตอบกลับมาเป็นหน้า HTML (Error)
+                    statusEl.innerText = "⚠️ ระบบขัดข้อง (ลองใหม่): " + cleanId;
+                    statusEl.className = "warning";
                 }
-
             } catch (error) {
-                // กรณี Error (เช่น CORS) แต่ข้อมูลมักจะเข้าชีทไปแล้ว
-                statusEl.innerText = "✔️ ส่งข้อมูลแล้ว (ตรวจสอบในชีท)";
-                statusEl.className = "success";
+                // หากติด CORS แต่ข้อมูลมักจะเข้าแล้ว ให้รอ 3 วินาทีเพื่อให้คุณครูสังเกตชีท
+                statusEl.innerText = "⏳ กำลังส่งข้อมูล... (เช็คในชีท)";
+                setTimeout(() => { isProcessing = false; }, 3000);
+                return;
             }
 
             // หน่วงเวลา 2.5 วินาทีเพื่อให้ครูอ่านทันว่า "ผ่าน" หรือ "ไม่ผ่าน" ก่อนจะเริ่มใหม่
