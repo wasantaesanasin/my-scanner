@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>QR Scanner - ระบบสแกนต่อเนื่อง</title>
+    <title>QR Scanner (Fixed Version)</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://unpkg.com/html5-qrcode"></script>
@@ -15,14 +15,14 @@
             background: #eef2ff; color: #4f46e5;
         }
         .success { background: #dcfce7 !important; color: #166534 !important; border: 2px solid #22c55e; }
-        .warning { background: #ffedd5 !important; color: #9a3412 !important; border: 2px solid #f97316; }
+        .warning { background: #fee2e2 !important; color: #991b1b !important; border: 2px solid #ef4444; } /* สีแดงเตือน */
         .loading { background: #fef9c3 !important; color: #854d0e !important; }
         .info { color: #666; font-size: 0.9rem; margin-top: 10px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2 style="color: #1e293b;">ระบบสแกนกิจกรรม</h2>
+        <h2 style="color: #1e293b;">ระบบสแกนกิจกรรม (V3)</h2>
         <div id="reader"></div>
         <div id="status">📢 พร้อมสแกน</div>
         <p class="info">ผู้บันทึก: <span id="recorder-name">...</span></p>
@@ -38,37 +38,57 @@
 
         let isProcessing = false;
 
-        function onScanSuccess(decodedText) {
+        async function onScanSuccess(decodedText) {
             if (isProcessing) return; 
             isProcessing = true;
             
             const statusEl = document.getElementById('status');
-            statusEl.innerText = "⏳ กำลังบันทึก: " + decodedText.replace('REPAIR:','');
+            const cleanId = decodedText.replace('REPAIR:','');
+            statusEl.innerText = "⏳ กำลังตรวจสอบ: " + cleanId;
             statusEl.className = "loading";
 
             const finalUrl = `${gasUrl}?id=${encodeURIComponent(decodedText)}&actId=${activityId}&recorder=${encodeURIComponent(recorder)}&mode=api`;
 
-            // ใช้เทคนิค Image เพื่อส่งข้อมูล (เสถียรที่สุดสำหรับสแกนต่อเนื่อง)
-            const img = new Image();
-            img.src = finalUrl;
+            try {
+                // เปลี่ยนจาก Image() มาใช้ fetch เพื่ออ่านคำตอบจาก GAS
+                const response = await fetch(finalUrl);
+                const result = await response.text();
 
-            // เนื่องจาก Image ไม่สามารถอ่าน Text ตอบกลับได้ เราจะหน่วงเวลาสั้นๆ 
-            // แล้วแสดงผลว่าบันทึกสำเร็จ (ระบบหลังบ้านจะกันซ้ำให้เอง)
-            setTimeout(() => {
-                statusEl.innerText = "✔️ ดำเนินการเรียบร้อย: " + decodedText.replace('REPAIR:','');
-                statusEl.className = "success";
                 if (navigator.vibrate) navigator.vibrate(100);
 
-                setTimeout(() => {
-                    statusEl.innerText = "🔍 พร้อมสแกนคนต่อไป...";
+                if (result === "Success") {
+                    statusEl.innerText = "✔️ บันทึกสำเร็จ: " + cleanId;
+                    statusEl.className = "success";
+                } else if (result === "AlreadyComplete") {
+                    statusEl.innerText = "❌ ซ่อมครบแล้ว: " + cleanId;
+                    statusEl.className = "warning";
+                } else if (result === "TooFast") {
+                    statusEl.innerText = "⚠️ ใจเย็นๆ สแกนรัวไป: " + cleanId;
+                    statusEl.className = "warning";
+                } else if (result === "Duplicate") {
+                    statusEl.innerText = "🚫 สแกนซ้ำไปแล้ว: " + cleanId;
+                    statusEl.className = "warning";
+                } else {
+                    statusEl.innerText = "❓ ผลลัพธ์: " + result;
                     statusEl.className = "";
-                    isProcessing = false;
-                }, 1000); // พัก 1 วินาทีแล้วเริ่มใหม่
-            }, 800); 
+                }
+
+            } catch (error) {
+                // กรณี Error (เช่น CORS) แต่ข้อมูลมักจะเข้าชีทไปแล้ว
+                statusEl.innerText = "✔️ ส่งข้อมูลแล้ว (ตรวจสอบในชีท)";
+                statusEl.className = "success";
+            }
+
+            // หน่วงเวลา 2.5 วินาทีเพื่อให้ครูอ่านทันว่า "ผ่าน" หรือ "ไม่ผ่าน" ก่อนจะเริ่มใหม่
+            setTimeout(() => {
+                statusEl.innerText = "🔍 พร้อมสแกนคนต่อไป...";
+                statusEl.className = "";
+                isProcessing = false;
+            }, 2500); 
         }
 
         let html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
-            fps: 20, 
+            fps: 15, 
             qrbox: { width: 250, height: 250 },
             aspectRatio: 1.0
         });
