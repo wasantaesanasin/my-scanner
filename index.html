@@ -38,7 +38,7 @@
 
         let isProcessing = false;
 
-        async function onScanSuccess(decodedText) {
+       async function onScanSuccess(decodedText) {
             if (isProcessing) return; 
             isProcessing = true;
             
@@ -47,43 +47,41 @@
             statusEl.innerText = "⏳ กำลังตรวจสอบ: " + cleanId;
             statusEl.className = "loading";
 
+            // เพิ่ม &mode=api เข้าไปเพื่อให้ Code.gs ส่งคำตอบแบบข้อความ
             const finalUrl = `${gasUrl}?id=${encodeURIComponent(decodedText)}&actId=${activityId}&recorder=${encodeURIComponent(recorder)}&mode=api`;
 
             try {
-                // เพิ่มโหมด no-cors หรือจัดการผลลัพธ์ให้ชัวร์
                 const response = await fetch(finalUrl);
-                const result = await response.text();
+                const result = await response.text(); // อ่านข้อความจาก GAS
 
                 if (navigator.vibrate) navigator.vibrate(100);
 
-                // ตรวจคำตอบที่ส่งกลับมาจริงจาก Google Sheets
-                if (result.includes("Success")) {
+                // ตรวจสอบคำตอบตามจริง
+                if (result === "Success") {
                     statusEl.innerText = "✔️ บันทึกสำเร็จ: " + cleanId;
                     statusEl.className = "success";
-                } else if (result.includes("AlreadyComplete")) {
+                } else if (result === "AlreadyComplete") {
                     statusEl.innerText = "❌ ซ่อมครบแล้ว: " + cleanId;
                     statusEl.className = "warning";
-                } else if (result.includes("TooFast")) {
-                    statusEl.innerText = "⚠️ สแกนซ้ำเร็วเกินไป: " + cleanId;
+                } else if (result === "TooFast") {
+                    statusEl.innerText = "⚠️ สแกนซ้ำเร็วไป: " + cleanId;
                     statusEl.className = "warning";
                 } else {
-                    // กรณี Google Sheets ตอบกลับมาเป็นหน้า HTML (Error)
-                    statusEl.innerText = "⚠️ ระบบขัดข้อง (ลองใหม่): " + cleanId;
+                    statusEl.innerText = "⚠️ ขัดข้อง: " + result;
                     statusEl.className = "warning";
                 }
+
             } catch (error) {
-                // หากติด CORS แต่ข้อมูลมักจะเข้าแล้ว ให้รอ 3 วินาทีเพื่อให้คุณครูสังเกตชีท
-                statusEl.innerText = "⏳ กำลังส่งข้อมูล... (เช็คในชีท)";
-                setTimeout(() => { isProcessing = false; }, 3000);
-                return;
+                // ถ้าติดขัดเรื่องการเชื่อมต่อ
+                statusEl.innerText = "❌ เชื่อมต่อ Server ไม่ได้";
+                statusEl.className = "warning";
             }
 
-            // หน่วงเวลา 2.5 วินาทีเพื่อให้ครูอ่านทันว่า "ผ่าน" หรือ "ไม่ผ่าน" ก่อนจะเริ่มใหม่
             setTimeout(() => {
                 statusEl.innerText = "🔍 พร้อมสแกนคนต่อไป...";
                 statusEl.className = "";
                 isProcessing = false;
-            }, 2500); 
+            }, 3000); // รอ 3 วินาทีให้ครูเห็นสถานะก่อน
         }
 
         let html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
